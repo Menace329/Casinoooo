@@ -1,0 +1,7 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <polygon points="32,4 52,20 52,44 32,60 12,44 12,20" fill="#3b82f6"/>
+  <polygon points="32,8 48,22 48,42 32,54 16,42 16,22" fill="#60a5fa"/>
+  <polygon points="32,12 44,24 44,40 32,50" fill="#93c5fd"/>
+  <polygon points="32,12 20,24 20,40 32,50" fill="#3b82f6"/>
+  <polygon points="20,24 32,12 44,24 32,32" fill="#bfdbfe"/>
+</svg>

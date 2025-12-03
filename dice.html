@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dice - STORM Casino</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">
+      <span class="logo">⚡</span>
+      <span class="brand-name">STORM</span>
+    </a>
+    <div class="nav-user">
+      <div class="balance-display">
+        <span class="balance-label">Balance</span>
+        <span class="balance-amount" id="userBalance">$0.00</span>
+      </div>
+      <a href="/" class="btn btn-outline">Back</a>
+    </div>
+  </nav>
+
+  <div class="game-layout">
+    <div class="game-area">
+      <div class="game-result" id="gameResult">🎲</div>
+      <div id="rollResult" style="font-size: 2rem; margin-top: 1rem; color: var(--text-muted);">Roll to play</div>
+    </div>
+
+    <div class="game-controls">
+      <h2 style="margin-bottom: 1.5rem;">Dice</h2>
+
+      <div class="form-group">
+        <label class="form-label">Bet Amount ($)</label>
+        <div class="bet-input-group">
+          <input type="number" id="betAmount" class="form-input" value="1" min="0.01" step="0.01">
+        </div>
+        <div class="bet-buttons" style="margin-top: 0.5rem;">
+          <button class="btn btn-outline" onclick="multiplyBet(0.5)">1/2</button>
+          <button class="btn btn-outline" onclick="multiplyBet(2)">2x</button>
+          <button class="btn btn-outline" onclick="setMax()">Max</button>
+        </div>
+      </div>
+
+      <div class="slider-container">
+        <label class="form-label">Win Chance: <span id="chanceDisplay">50</span>%</label>
+        <input type="range" id="chanceSlider" class="slider" min="1" max="98" value="50">
+      </div>
+
+      <div class="multiplier-display">
+        <span style="color: var(--text-muted);">Multiplier</span>
+        <div class="multiplier-value" id="multiplierDisplay">1.96x</div>
+      </div>
+
+      <button class="btn btn-primary btn-lg" style="width: 100%;" onclick="playDice()" id="playBtn">Roll Dice</button>
+
+      <div id="lastResults" style="margin-top: 1.5rem;">
+        <span style="color: var(--text-muted); font-size: 0.875rem;">Last Results:</span>
+        <div id="resultHistory" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    let userBalance = 0;
+
+    async function init() {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) {
+        window.location.href = '/login.html';
+        return;
+      }
+      const user = await res.json();
+      userBalance = user.balance;
+      updateBalanceDisplay();
+    }
+
+    function updateBalanceDisplay() {
+      document.getElementById('userBalance').textContent = '$' + userBalance.toFixed(2);
+    }
+
+    function updateMultiplier() {
+      const chance = parseInt(document.getElementById('chanceSlider').value);
+      document.getElementById('chanceDisplay').textContent = chance;
+      const mult = ((100 / chance) * 0.98).toFixed(2);
+      document.getElementById('multiplierDisplay').textContent = mult + 'x';
+    }
+
+    function multiplyBet(factor) {
+      const input = document.getElementById('betAmount');
+      input.value = Math.max(0.01, (parseFloat(input.value) * factor)).toFixed(2);
+    }
+
+    function setMax() {
+      document.getElementById('betAmount').value = userBalance.toFixed(2);
+    }
+
+    async function playDice() {
+      const bet = parseFloat(document.getElementById('betAmount').value);
+      const chance = parseInt(document.getElementById('chanceSlider').value);
+
+      if (bet > userBalance) {
+        alert('Insufficient balance');
+        return;
+      }
+
+      if (bet < 0.01) {
+        alert('Minimum bet is $0.01');
+        return;
+      }
+
+      document.getElementById('playBtn').disabled = true;
+      document.getElementById('gameResult').textContent = '🎲';
+      document.getElementById('gameResult').className = 'game-result';
+
+      try {
+        const res = await fetch('/api/game/dice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bet, chance })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          userBalance = data.newBalance;
+          updateBalanceDisplay();
+
+          const resultEl = document.getElementById('gameResult');
+          const rollEl = document.getElementById('rollResult');
+
+          resultEl.textContent = data.roll.toFixed(2);
+          rollEl.textContent = data.win ? `+$${data.payout.toFixed(2)}` : '-$' + bet.toFixed(2);
+          resultEl.className = 'game-result ' + (data.win ? 'win' : 'lose');
+
+          addToHistory(data.roll.toFixed(2), data.win);
+        } else {
+          alert(data.error);
+        }
+      } catch (e) {
+        alert('Game error');
+      }
+
+      document.getElementById('playBtn').disabled = false;
+    }
+
+    function addToHistory(roll, won) {
+      const history = document.getElementById('resultHistory');
+      const badge = document.createElement('span');
+      badge.className = 'status-badge ' + (won ? 'status-confirmed' : 'status-rejected');
+      badge.textContent = roll;
+      history.prepend(badge);
+      if (history.children.length > 10) {
+        history.removeChild(history.lastChild);
+      }
+    }
+
+    document.getElementById('chanceSlider').addEventListener('input', updateMultiplier);
+    updateMultiplier();
+    init();
+  </script>
+</body>
+</html>

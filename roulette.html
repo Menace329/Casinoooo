@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roulette - STORM Casino</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .roulette-container { position: relative; width: 100%; max-width: 320px; margin: 0 auto; }
+    .roulette-wheel { 
+      width: 100%; 
+      padding-bottom: 100%; 
+      position: relative; 
+      border-radius: 50%; 
+      transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99); 
+    }
+    .wheel-inner { 
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      border-radius: 50%; 
+      overflow: hidden; 
+      border: 8px solid #333; 
+      box-shadow: 0 0 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,0,0,0.3); 
+    }
+    .wheel-segment {
+      position: absolute;
+      width: 50%;
+      height: 50%;
+      left: 50%;
+      top: 50%;
+      transform-origin: 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 8px;
+      box-sizing: border-box;
+      font-size: 10px;
+      font-weight: 700;
+      color: white;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    }
+    .wheel-segment .number {
+      transform: rotate(85deg);
+      position: absolute;
+      right: 12px;
+      font-size: 11px;
+    }
+    .wheel-center { 
+      position: absolute; 
+      top: 50%; left: 50%; 
+      transform: translate(-50%, -50%); 
+      width: 70px; height: 70px; 
+      background: linear-gradient(135deg, #444, #222); 
+      border-radius: 50%; 
+      display: flex; align-items: center; justify-content: center; 
+      font-size: 1.5rem; font-weight: 700; color: #fff; 
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4); 
+      z-index: 10; 
+    }
+    .wheel-pointer { 
+      position: absolute; 
+      top: -20px; left: 50%; 
+      transform: translateX(-50%); 
+      z-index: 20; 
+      width: 0; height: 0;
+      border-left: 12px solid transparent;
+      border-right: 12px solid transparent;
+      border-top: 20px solid #f59e0b;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); 
+    }
+    .roulette-result { 
+      width: 80px; height: 80px; 
+      border-radius: 50%; 
+      display: flex; align-items: center; justify-content: center; 
+      font-size: 2rem; font-weight: 700; 
+      margin: 1.5rem auto 0; 
+      transition: all 0.3s ease; 
+      color: white;
+    }
+    .roulette-result.red { background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4); }
+    .roulette-result.black { background: linear-gradient(135deg, #1a1a2e, #0f0f1a); border: 3px solid var(--border-color); }
+    .roulette-result.green { background: linear-gradient(135deg, #22c55e, #16a34a); box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4); }
+    .bet-type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
+    .bet-type-btn { padding: 0.75rem 0.5rem; background: var(--bg-tertiary); border: 2px solid var(--border-color); border-radius: 8px; color: var(--text-primary); cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 0.875rem; }
+    .bet-type-btn:hover { transform: translateY(-2px); }
+    .bet-type-btn.active { border-color: var(--accent-primary); background: rgba(99, 102, 241, 0.2); }
+    .bet-type-btn.red { border-color: #ef4444; }
+    .bet-type-btn.red.active { background: rgba(239, 68, 68, 0.2); }
+    .bet-type-btn.black { border-color: #71717a; }
+    .bet-type-btn.black.active { background: rgba(113, 113, 122, 0.2); }
+    @keyframes spinPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    .spinning .wheel-center { animation: spinPulse 0.3s ease infinite; }
+    @media (max-width: 600px) {
+      .roulette-container { max-width: 280px; }
+      .wheel-center { width: 60px; height: 60px; font-size: 1.25rem; }
+      .wheel-segment .number { font-size: 9px; right: 10px; }
+      .roulette-result { width: 60px; height: 60px; font-size: 1.5rem; }
+      .bet-type-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">
+      <span class="logo">⚡</span>
+      <span class="brand-name">STORM</span>
+    </a>
+    <div class="nav-user">
+      <div class="balance-display">
+        <span class="balance-label">Balance</span>
+        <span class="balance-amount" id="userBalance">$0.00</span>
+      </div>
+      <a href="/" class="btn btn-outline">Back</a>
+    </div>
+  </nav>
+
+  <div class="game-layout">
+    <div class="game-area">
+      <div class="roulette-container">
+        <div class="wheel-pointer"></div>
+        <div class="roulette-wheel" id="rouletteWheel">
+          <div class="wheel-inner" id="wheelInner"></div>
+          <div class="wheel-center" id="wheelCenter">?</div>
+        </div>
+      </div>
+      <div class="roulette-result" id="rouletteResult" style="display: none;">?</div>
+      <div id="resultText" style="text-align: center; margin-top: 1rem; font-size: 1.25rem; font-weight: 600;"></div>
+    </div>
+
+    <div class="game-controls">
+      <h2 style="margin-bottom: 1.5rem;">Roulette</h2>
+
+      <div class="form-group">
+        <label class="form-label">Bet Amount ($)</label>
+        <input type="number" id="betAmount" class="form-input" value="1" min="0.01" step="0.01">
+        <div class="bet-buttons" style="margin-top: 0.5rem;">
+          <button class="btn btn-outline" onclick="multiplyBet(0.5)">1/2</button>
+          <button class="btn btn-outline" onclick="multiplyBet(2)">2x</button>
+          <button class="btn btn-outline" onclick="setMax()">Max</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Bet Type</label>
+        <div class="bet-type-grid">
+          <button class="bet-type-btn red active" data-type="red">Red</button>
+          <button class="bet-type-btn black" data-type="black">Black</button>
+          <button class="bet-type-btn" data-type="even">Even</button>
+          <button class="bet-type-btn" data-type="odd">Odd</button>
+          <button class="bet-type-btn" data-type="low">1-18</button>
+          <button class="bet-type-btn" data-type="high">19-36</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-lg" style="width: 100%;" onclick="playRoulette()" id="playBtn">Spin</button>
+
+      <div id="lastResults" style="margin-top: 1.5rem;">
+        <span style="color: var(--text-muted); font-size: 0.875rem;">Last Results:</span>
+        <div id="resultHistory" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    let userBalance = 0;
+    let selectedBetType = 'red';
+    let currentRotation = 0;
+    let spinning = false;
+
+    const rouletteNumbers = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+    const redNumbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+
+    function buildWheel() {
+      const wheelInner = document.getElementById('wheelInner');
+      wheelInner.innerHTML = '';
+      
+      const segmentAngle = 360 / 37;
+      
+      rouletteNumbers.forEach((num, index) => {
+        const segment = document.createElement('div');
+        segment.className = 'wheel-segment';
+        
+        const startAngle = -90 + (index * segmentAngle);
+        const isRed = redNumbers.includes(num);
+        const isZero = num === 0;
+        
+        let bgColor;
+        if (isZero) {
+          bgColor = '#22c55e';
+        } else if (isRed) {
+          bgColor = '#ef4444';
+        } else {
+          bgColor = '#1a1a2e';
+        }
+        
+        segment.style.transform = `rotate(${startAngle}deg)`;
+        segment.style.background = `linear-gradient(to right, transparent 0%, ${bgColor} 30%, ${bgColor} 100%)`;
+        segment.style.clipPath = `polygon(0 0, 100% 0, 100% 100%, 0 100%)`;
+        
+        const numberSpan = document.createElement('span');
+        numberSpan.className = 'number';
+        numberSpan.textContent = num;
+        segment.appendChild(numberSpan);
+        
+        wheelInner.appendChild(segment);
+      });
+      
+      const canvas = document.createElement('canvas');
+      const size = 320;
+      canvas.width = size;
+      canvas.height = size;
+      canvas.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%;';
+      
+      const ctx = canvas.getContext('2d');
+      const centerX = size / 2;
+      const centerY = size / 2;
+      const radius = size / 2 - 8;
+      
+      rouletteNumbers.forEach((num, index) => {
+        const startAngle = ((index * segmentAngle) - 90) * (Math.PI / 180);
+        const endAngle = (((index + 1) * segmentAngle) - 90) * (Math.PI / 180);
+        
+        const isRed = redNumbers.includes(num);
+        const isZero = num === 0;
+        
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.closePath();
+        
+        if (isZero) {
+          ctx.fillStyle = '#22c55e';
+        } else if (isRed) {
+          ctx.fillStyle = '#ef4444';
+        } else {
+          ctx.fillStyle = '#1a1a2e';
+        }
+        ctx.fill();
+        
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        const midAngle = (startAngle + endAngle) / 2;
+        const textRadius = radius * 0.75;
+        const textX = centerX + Math.cos(midAngle) * textRadius;
+        const textY = centerY + Math.sin(midAngle) * textRadius;
+        
+        ctx.save();
+        ctx.translate(textX, textY);
+        ctx.rotate(midAngle + Math.PI / 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 2;
+        ctx.fillText(num.toString(), 0, 0);
+        ctx.restore();
+      });
+      
+      wheelInner.innerHTML = '';
+      wheelInner.appendChild(canvas);
+    }
+
+    async function init() {
+      buildWheel();
+      
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) {
+        window.location.href = '/login.html';
+        return;
+      }
+      const user = await res.json();
+      userBalance = user.balance;
+      updateBalanceDisplay();
+    }
+
+    function updateBalanceDisplay() {
+      document.getElementById('userBalance').textContent = '$' + userBalance.toFixed(2);
+    }
+
+    function multiplyBet(factor) {
+      const input = document.getElementById('betAmount');
+      input.value = Math.max(0.01, (parseFloat(input.value) * factor)).toFixed(2);
+    }
+
+    function setMax() {
+      document.getElementById('betAmount').value = userBalance.toFixed(2);
+    }
+
+    async function playRoulette() {
+      if (spinning) return;
+      
+      const bet = parseFloat(document.getElementById('betAmount').value);
+
+      if (bet > userBalance) {
+        alert('Insufficient balance');
+        return;
+      }
+
+      spinning = true;
+      document.getElementById('playBtn').disabled = true;
+      document.getElementById('rouletteResult').style.display = 'none';
+      document.getElementById('resultText').textContent = '';
+      document.getElementById('wheelCenter').textContent = '?';
+      document.querySelector('.roulette-container').classList.add('spinning');
+
+      try {
+        const res = await fetch('/api/game/roulette', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bet, betType: selectedBetType })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          const resultIndex = rouletteNumbers.indexOf(data.result);
+          const segmentAngle = 360 / 37;
+          const segmentMidpoint = segmentAngle / 2;
+          const targetAngle = (resultIndex * segmentAngle) + segmentMidpoint;
+          
+          const rotations = 5 + Math.random() * 3;
+          const finalRotation = currentRotation + (360 * rotations) + (360 - targetAngle);
+          
+          const wheel = document.getElementById('rouletteWheel');
+          wheel.style.transform = `rotate(${finalRotation}deg)`;
+          currentRotation = finalRotation % 360;
+
+          setTimeout(() => {
+            userBalance = data.newBalance;
+            updateBalanceDisplay();
+            
+            document.querySelector('.roulette-container').classList.remove('spinning');
+            document.getElementById('wheelCenter').textContent = data.result;
+
+            const resultEl = document.getElementById('rouletteResult');
+            resultEl.textContent = data.result;
+            resultEl.style.display = 'flex';
+            
+            if (data.isZero) {
+              resultEl.className = 'roulette-result green';
+            } else if (data.isRed) {
+              resultEl.className = 'roulette-result red';
+            } else {
+              resultEl.className = 'roulette-result black';
+            }
+
+            const resultText = document.getElementById('resultText');
+            if (data.win) {
+              resultText.textContent = `Win! +$${data.payout.toFixed(2)}`;
+              resultText.style.color = 'var(--accent-success)';
+            } else {
+              resultText.textContent = `Lost -$${bet.toFixed(2)}`;
+              resultText.style.color = 'var(--accent-danger)';
+            }
+
+            addToHistory(data.result, data.isRed, data.isZero, data.win);
+            spinning = false;
+            document.getElementById('playBtn').disabled = false;
+          }, 4000);
+        } else {
+          alert(data.error);
+          spinning = false;
+          document.getElementById('playBtn').disabled = false;
+          document.querySelector('.roulette-container').classList.remove('spinning');
+        }
+      } catch (e) {
+        alert('Game error');
+        spinning = false;
+        document.getElementById('playBtn').disabled = false;
+        document.querySelector('.roulette-container').classList.remove('spinning');
+      }
+    }
+
+    function addToHistory(result, isRed, isZero, won) {
+      const history = document.getElementById('resultHistory');
+      const badge = document.createElement('span');
+      let bgColor = isZero ? '#22c55e' : (isRed ? '#ef4444' : '#1a1a2e');
+      let border = isZero || isRed ? 'none' : '1px solid #71717a';
+      badge.style.cssText = `display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; font-size: 0.75rem; font-weight: 600; color: white; background: ${bgColor}; border: ${border};`;
+      badge.textContent = result;
+      history.prepend(badge);
+      if (history.children.length > 15) {
+        history.removeChild(history.lastChild);
+      }
+    }
+
+    document.querySelectorAll('.bet-type-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.bet-type-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedBetType = btn.dataset.type;
+      });
+    });
+
+    init();
+  </script>
+</body>
+</html>

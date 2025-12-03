@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slots - STORM Casino</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .slots-machine { background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 16px; padding: 1rem; box-shadow: 0 10px 40px rgba(0,0,0,0.4); width: 100%; max-width: 500px; margin: 0 auto; }
+    .slots-display { background: #0a0a14; border-radius: 12px; padding: 0.75rem; border: 4px solid #333; }
+    .slots-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+    .reel { display: flex; flex-direction: column; gap: 6px; }
+    .slot-cell { width: 100%; aspect-ratio: 1; min-width: 40px; max-width: 70px; background: linear-gradient(135deg, #1e1e3f, #2a2a5f); border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 2px solid #333; transition: all 0.3s ease; overflow: hidden; }
+    .slot-cell img { width: 70%; height: 70%; object-fit: contain; }
+    .slot-cell.winning { border-color: #f59e0b; box-shadow: 0 0 20px rgba(245, 158, 11, 0.5); animation: winPulse 0.5s ease infinite alternate; }
+    .slot-cell.scatter { border-color: #ec4899; box-shadow: 0 0 20px rgba(236, 72, 153, 0.5); }
+    @keyframes winPulse { from { transform: scale(1); } to { transform: scale(1.05); } }
+    @keyframes spin { 0% { transform: translateY(-100%); } 100% { transform: translateY(0); } }
+    .reel.spinning .slot-cell { animation: spin 0.1s linear infinite; }
+    .slots-info { display: flex; justify-content: space-between; margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 8px; flex-wrap: wrap; gap: 0.5rem; }
+    .info-item { text-align: center; flex: 1; min-width: 80px; }
+    .info-value { font-size: 1.25rem; font-weight: 700; color: var(--accent-primary); }
+    .paytable { background: var(--bg-tertiary); border-radius: 8px; padding: 1rem; margin-top: 1rem; }
+    .paytable-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.875rem; }
+    .paytable-row:last-child { border-bottom: none; }
+    .paytable-symbol { display: flex; align-items: center; gap: 0.5rem; }
+    .paytable-symbol img { width: 24px; height: 24px; }
+    @media (max-width: 600px) {
+      .slots-machine { padding: 0.75rem; }
+      .slot-cell { min-width: 30px; }
+      .info-value { font-size: 1rem; }
+      .paytable { font-size: 0.75rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">
+      <span class="logo">⚡</span>
+      <span class="brand-name">STORM</span>
+    </a>
+    <div class="nav-user">
+      <div class="balance-display">
+        <span class="balance-label">Balance</span>
+        <span class="balance-amount" id="userBalance">$0.00</span>
+      </div>
+      <a href="/" class="btn btn-outline">Back</a>
+    </div>
+  </nav>
+
+  <div class="game-layout">
+    <div class="game-area">
+      <div class="slots-machine">
+        <div class="slots-display">
+          <div class="slots-grid" id="slotsGrid"></div>
+        </div>
+        <div class="slots-info">
+          <div class="info-item">
+            <span style="color: var(--text-muted); font-size: 0.75rem;">Multiplier</span>
+            <div class="info-value" id="multiplierDisplay">0x</div>
+          </div>
+          <div class="info-item">
+            <span style="color: var(--text-muted); font-size: 0.75rem;">Win</span>
+            <div class="info-value" id="winDisplay">$0.00</div>
+          </div>
+          <div class="info-item">
+            <span style="color: var(--text-muted); font-size: 0.75rem;">Free Spins</span>
+            <div class="info-value" id="freeSpinsDisplay">0</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="paytable">
+        <div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text-muted);">Paytable (3/4/5 matches)</div>
+        <div class="paytable-row"><span class="paytable-symbol"><img src="/images/cherry.svg" alt="Cherry"> Cherry</span><span>2x / 5x / 15x</span></div>
+        <div class="paytable-row"><span class="paytable-symbol"><img src="/images/lemon.svg" alt="Lemon"> Lemon</span><span>2x / 5x / 15x</span></div>
+        <div class="paytable-row"><span class="paytable-symbol"><img src="/images/orange.svg" alt="Orange"> Orange</span><span>3x / 8x / 20x</span></div>
+        <div class="paytable-row"><span class="paytable-symbol"><img src="/images/plum.svg" alt="Plum"> Plum</span><span>4x / 10x / 25x</span></div>
+        <div class="paytable-row"><span class="paytable-symbol"><img src="/images/bell.svg" alt="Bell"> Bell</span><span>10x / 25x / 75x</span></div>
+        <div class="paytable-row"><span class="paytable-symbol"><img src="/images/bar.svg" alt="Bar"> Bar</span><span>25x / 75x / 250x</span></div>
+        <div class="paytable-row"><span class="paytable-symbol"><img src="/images/seven.svg" alt="Seven"> Seven</span><span>50x / 150x / 500x</span></div>
+        <div class="paytable-row"><span class="paytable-symbol"><img src="/images/scatter.svg" alt="Scatter"> Scatter (3+)</span><span>Free Spins!</span></div>
+      </div>
+    </div>
+
+    <div class="game-controls">
+      <h2 style="margin-bottom: 1.5rem;">Slots</h2>
+
+      <div class="form-group">
+        <label class="form-label">Bet Amount ($)</label>
+        <input type="number" id="betAmount" class="form-input" value="1" min="0.01" step="0.01">
+        <div class="bet-buttons" style="margin-top: 0.5rem;">
+          <button class="btn btn-outline" onclick="multiplyBet(0.5)">1/2</button>
+          <button class="btn btn-outline" onclick="multiplyBet(2)">2x</button>
+          <button class="btn btn-outline" onclick="setMax()">Max</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-lg" style="width: 100%; margin-top: 1rem;" onclick="spin()" id="spinBtn">Spin</button>
+
+      <div id="lastResults" style="margin-top: 1.5rem;">
+        <span style="color: var(--text-muted); font-size: 0.875rem;">Last Results:</span>
+        <div id="resultHistory" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="free-spins-overlay" id="freeSpinsOverlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 100;">
+    <div style="background: linear-gradient(135deg, #1a1a2e, #2d1f47); padding: 2rem; border-radius: 16px; text-align: center; border: 3px solid #ec4899;">
+      <div style="font-size: 1.5rem; margin-bottom: 1rem;">FREE SPINS!</div>
+      <div id="freeSpinsWon" style="font-size: 4rem; font-weight: 700; color: #ec4899;">10</div>
+      <div style="margin-top: 1rem;">Free Spins Won!</div>
+      <button class="btn btn-primary" style="margin-top: 1rem;" onclick="closeFreeSpinsOverlay()">Continue</button>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    let userBalance = 0;
+    let spinning = false;
+
+    const symbolImages = {
+      cherry: '/images/cherry.svg',
+      lemon: '/images/lemon.svg',
+      orange: '/images/orange.svg',
+      plum: '/images/plum.svg',
+      bell: '/images/bell.svg',
+      bar: '/images/bar.svg',
+      seven: '/images/seven.svg',
+      scatter: '/images/scatter.svg'
+    };
+
+    async function init() {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) {
+        window.location.href = '/login.html';
+        return;
+      }
+      const user = await res.json();
+      userBalance = user.balance;
+      updateBalanceDisplay();
+      createEmptyGrid();
+    }
+
+    function createEmptyGrid() {
+      const grid = document.getElementById('slotsGrid');
+      grid.innerHTML = '';
+      
+      for (let col = 0; col < 5; col++) {
+        const reel = document.createElement('div');
+        reel.className = 'reel';
+        reel.id = `reel-${col}`;
+        
+        for (let row = 0; row < 3; row++) {
+          const cell = document.createElement('div');
+          cell.className = 'slot-cell';
+          cell.id = `cell-${col}-${row}`;
+          cell.textContent = '?';
+          reel.appendChild(cell);
+        }
+        
+        grid.appendChild(reel);
+      }
+    }
+
+    function updateBalanceDisplay() {
+      document.getElementById('userBalance').textContent = '$' + userBalance.toFixed(2);
+    }
+
+    function multiplyBet(factor) {
+      const input = document.getElementById('betAmount');
+      input.value = Math.max(0.01, (parseFloat(input.value) * factor)).toFixed(2);
+    }
+
+    function setMax() {
+      document.getElementById('betAmount').value = userBalance.toFixed(2);
+    }
+
+    async function spin() {
+      if (spinning) return;
+      
+      let bet = parseFloat(document.getElementById('betAmount').value);
+
+      if (bet > userBalance) {
+        alert('Insufficient balance');
+        return;
+      }
+
+      spinning = true;
+      document.getElementById('spinBtn').disabled = true;
+      
+      document.querySelectorAll('.slot-cell').forEach(cell => {
+        cell.classList.remove('winning', 'scatter');
+      });
+      document.getElementById('multiplierDisplay').textContent = '0x';
+      document.getElementById('winDisplay').textContent = '$0.00';
+
+      document.querySelectorAll('.reel').forEach(reel => reel.classList.add('spinning'));
+
+      try {
+        const res = await fetch('/api/game/slots', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bet })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          await animateReels(data.reels);
+
+          userBalance = data.newBalance;
+          updateBalanceDisplay();
+
+          data.winningLines.forEach(line => {
+            highlightWinningCells(line);
+          });
+
+          if (data.scatterCount >= 3) {
+            highlightScatters(data.reels);
+          }
+
+          document.getElementById('multiplierDisplay').textContent = data.multiplier.toFixed(2) + 'x';
+          document.getElementById('winDisplay').textContent = '$' + data.payout.toFixed(2);
+          document.getElementById('winDisplay').style.color = data.win ? 'var(--accent-success)' : 'var(--text-muted)';
+
+          if (data.freeSpins > 0) {
+            document.getElementById('freeSpinsDisplay').textContent = data.freeSpins;
+            showFreeSpinsOverlay(data.freeSpins);
+          }
+
+          addToHistory(data.multiplier, data.win);
+        } else {
+          alert(data.error);
+        }
+      } catch (e) {
+        alert('Game error');
+      }
+
+      spinning = false;
+      document.getElementById('spinBtn').disabled = false;
+    }
+
+    function animateReels(reels) {
+      return new Promise(resolve => {
+        const delays = [300, 500, 700, 900, 1100];
+        
+        reels.forEach((reel, colIndex) => {
+          setTimeout(() => {
+            const reelEl = document.getElementById(`reel-${colIndex}`);
+            reelEl.classList.remove('spinning');
+            
+            reel.forEach((symbol, rowIndex) => {
+              const cell = document.getElementById(`cell-${colIndex}-${rowIndex}`);
+              cell.innerHTML = `<img src="${symbolImages[symbol]}" alt="${symbol}">`;
+            });
+          }, delays[colIndex]);
+        });
+
+        setTimeout(resolve, delays[4] + 200);
+      });
+    }
+
+    function highlightWinningCells(line) {
+      const paylines = [
+        [[0,1], [1,1], [2,1], [3,1], [4,1]],
+        [[0,0], [1,0], [2,0], [3,0], [4,0]],
+        [[0,2], [1,2], [2,2], [3,2], [4,2]],
+        [[0,0], [1,1], [2,2], [3,1], [4,0]],
+        [[0,2], [1,1], [2,0], [3,1], [4,2]]
+      ];
+      
+      if (paylines[line.line - 1]) {
+        for (let i = 0; i < line.count; i++) {
+          const [col, row] = paylines[line.line - 1][i];
+          const cell = document.getElementById(`cell-${col}-${row}`);
+          if (cell) cell.classList.add('winning');
+        }
+      }
+    }
+
+    function highlightScatters(reels) {
+      reels.forEach((reel, colIndex) => {
+        reel.forEach((symbol, rowIndex) => {
+          if (symbol === 'scatter') {
+            const cell = document.getElementById(`cell-${colIndex}-${rowIndex}`);
+            if (cell) cell.classList.add('scatter');
+          }
+        });
+      });
+    }
+
+    function showFreeSpinsOverlay(count) {
+      document.getElementById('freeSpinsWon').textContent = count;
+      document.getElementById('freeSpinsOverlay').style.display = 'flex';
+    }
+
+    function closeFreeSpinsOverlay() {
+      document.getElementById('freeSpinsOverlay').style.display = 'none';
+    }
+
+    function addToHistory(multiplier, won) {
+      const history = document.getElementById('resultHistory');
+      const badge = document.createElement('span');
+      badge.className = 'status-badge ' + (won ? 'status-confirmed' : 'status-rejected');
+      badge.textContent = multiplier.toFixed(1) + 'x';
+      history.prepend(badge);
+      if (history.children.length > 8) {
+        history.removeChild(history.lastChild);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

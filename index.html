@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STORM Casino - Play. Win. Storm.</title>
+  
+  <meta property="og:title" content="STORM Casino - Play. Win. Storm.">
+  <meta property="og:description" content="Experience the thrill of crypto casino gaming with instant deposits and withdrawals. Play Dice, Mines, Crash, Roulette, and more!">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://stormcasino.org">
+  <meta property="og:image" content="https://stormcasino.org/images/og-preview.svg">
+  <meta property="og:site_name" content="STORM Casino">
+  
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="STORM Casino - Play. Win. Storm.">
+  <meta name="twitter:description" content="Experience the thrill of crypto casino gaming with instant deposits and withdrawals.">
+  <meta name="twitter:image" content="https://stormcasino.org/images/og-preview.svg">
+  
+  <meta name="description" content="STORM Casino - Experience the thrill of crypto casino gaming with instant deposits and withdrawals. Play Dice, Mines, Crash, Roulette, Plinko, and more!">
+  <meta name="theme-color" content="#6366f1">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/api.js"></script>
+</head>
+<body>
+  <div id="app">
+    <nav class="navbar">
+      <div class="nav-brand">
+        <span class="logo">⚡</span>
+        <span class="brand-name">STORM</span>
+      </div>
+      <div class="nav-links" id="authNav">
+        <a href="/login.html" class="btn btn-outline">Login</a>
+        <a href="/register.html" class="btn btn-primary">Register</a>
+      </div>
+      <div class="nav-user hidden" id="userNav">
+        <div class="balance-display">
+          <span class="balance-label">Balance</span>
+          <span class="balance-amount" id="userBalance">$0.00</span>
+        </div>
+        <div class="user-menu">
+          <button class="user-btn" id="userMenuBtn">
+            <span id="userName">User</span>
+            <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+          </button>
+          <div class="dropdown-menu hidden" id="userDropdown">
+            <a href="/wallet.html">Wallet</a>
+            <a href="/history.html">History</a>
+            <a href="/admin.html" id="adminLink" class="hidden">Admin</a>
+            <a href="#" id="logoutBtn">Logout</a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <section class="hero">
+        <div class="hero-content">
+          <h1>Play. Win. <span class="highlight">Storm.</span></h1>
+          <p>Experience the thrill of crypto casino gaming with instant deposits and withdrawals.</p>
+          <div class="hero-buttons">
+            <a href="/register.html" class="btn btn-primary btn-lg" id="heroRegister">Start Playing</a>
+            <a href="#games" class="btn btn-outline btn-lg">View Games</a>
+          </div>
+        </div>
+        <div class="hero-stats">
+          <div class="stat-card">
+            <span class="stat-value">$2.5M+</span>
+            <span class="stat-label">Total Wagered</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value">50K+</span>
+            <span class="stat-label">Games Played</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value">99.9%</span>
+            <span class="stat-label">Uptime</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="games-section" id="games">
+        <h2 class="section-title">Casino Games</h2>
+        <div class="games-grid">
+          <a href="/games/dice.html" class="game-card">
+            <div class="game-icon">🎲</div>
+            <h3>Dice</h3>
+            <p>Classic dice game with customizable win chance</p>
+          </a>
+          <a href="/games/mines.html" class="game-card">
+            <div class="game-icon">💣</div>
+            <h3>Mines</h3>
+            <p>Navigate the minefield for big multipliers</p>
+          </a>
+          <a href="/games/crash.html" class="game-card">
+            <div class="game-icon">📈</div>
+            <h3>Crash</h3>
+            <p>Cash out before the crash for huge wins</p>
+          </a>
+          <a href="/games/plinko.html" class="game-card">
+            <div class="game-icon">🔴</div>
+            <h3>Plinko</h3>
+            <p>Drop the ball and watch it bounce to riches</p>
+          </a>
+          <a href="/games/limbo.html" class="game-card">
+            <div class="game-icon">🎯</div>
+            <h3>Limbo</h3>
+            <p>Set your target and hope the number goes higher</p>
+          </a>
+          <a href="/games/roulette.html" class="game-card">
+            <div class="game-icon">🎰</div>
+            <h3>Roulette</h3>
+            <p>Classic roulette with multiple bet types</p>
+          </a>
+          <a href="/games/keno.html" class="game-card">
+            <div class="game-icon">🎱</div>
+            <h3>Keno</h3>
+            <p>Pick your numbers and watch the draw</p>
+          </a>
+          <a href="/games/slots.html" class="game-card">
+            <div class="game-icon">🍒</div>
+            <h3>Slots</h3>
+            <p>5-reel slots with 20 paylines and bonus buy</p>
+          </a>
+        </div>
+      </section>
+
+      <section class="crypto-section">
+        <h2 class="section-title">Crypto Payments</h2>
+        <div class="crypto-cards">
+          <div class="crypto-card btc">
+            <div class="crypto-icon">₿</div>
+            <h3>Bitcoin</h3>
+            <p>Deposit and withdraw with BTC</p>
+          </div>
+          <div class="crypto-card ltc">
+            <div class="crypto-icon">Ł</div>
+            <h3>Litecoin</h3>
+            <p>Fast transactions with LTC</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-content">
+        <div class="footer-brand">
+          <span class="logo">⚡</span>
+          <span>STORM Casino</span>
+        </div>
+        <p class="footer-disclaimer">Please gamble responsibly. Must be 18+ to play.</p>
+      </div>
+    </footer>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

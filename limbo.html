@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Limbo - STORM Casino</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">
+      <span class="logo">⚡</span>
+      <span class="brand-name">STORM</span>
+    </a>
+    <div class="nav-user">
+      <div class="balance-display">
+        <span class="balance-label">Balance</span>
+        <span class="balance-amount" id="userBalance">$0.00</span>
+      </div>
+      <a href="/" class="btn btn-outline">Back</a>
+    </div>
+  </nav>
+
+  <div class="game-layout">
+    <div class="game-area">
+      <div class="game-result" id="gameResult">🎯</div>
+      <div style="text-align: center; margin-top: 1rem;">
+        <span style="color: var(--text-muted);">Target:</span>
+        <span id="targetDisplay" style="font-size: 1.5rem; font-weight: 600; color: var(--accent-primary); margin-left: 0.5rem;">2.00x</span>
+      </div>
+      <div id="resultText" style="text-align: center; margin-top: 0.5rem; font-size: 1.25rem;"></div>
+    </div>
+
+    <div class="game-controls">
+      <h2 style="margin-bottom: 1.5rem;">Limbo</h2>
+
+      <div class="form-group">
+        <label class="form-label">Bet Amount ($)</label>
+        <input type="number" id="betAmount" class="form-input" value="1" min="0.01" step="0.01">
+        <div class="bet-buttons" style="margin-top: 0.5rem;">
+          <button class="btn btn-outline" onclick="multiplyBet(0.5)">1/2</button>
+          <button class="btn btn-outline" onclick="multiplyBet(2)">2x</button>
+          <button class="btn btn-outline" onclick="setMax()">Max</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Target Multiplier</label>
+        <input type="number" id="targetMultiplier" class="form-input" value="2" min="1.01" max="1000" step="0.01">
+      </div>
+
+      <div class="multiplier-display">
+        <span style="color: var(--text-muted);">Win Chance</span>
+        <div class="multiplier-value" id="winChance">49%</div>
+      </div>
+
+      <button class="btn btn-primary btn-lg" style="width: 100%;" onclick="playLimbo()" id="playBtn">Play</button>
+
+      <div id="lastResults" style="margin-top: 1.5rem;">
+        <span style="color: var(--text-muted); font-size: 0.875rem;">Last Results:</span>
+        <div id="resultHistory" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    let userBalance = 0;
+
+    async function init() {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) {
+        window.location.href = '/login.html';
+        return;
+      }
+      const user = await res.json();
+      userBalance = user.balance;
+      updateBalanceDisplay();
+    }
+
+    function updateBalanceDisplay() {
+      document.getElementById('userBalance').textContent = '$' + userBalance.toFixed(2);
+    }
+
+    function updateWinChance() {
+      const target = parseFloat(document.getElementById('targetMultiplier').value) || 2;
+      const chance = Math.min(98, Math.max(1, (100 / target) * 0.98));
+      document.getElementById('winChance').textContent = chance.toFixed(1) + '%';
+      document.getElementById('targetDisplay').textContent = target.toFixed(2) + 'x';
+    }
+
+    function multiplyBet(factor) {
+      const input = document.getElementById('betAmount');
+      input.value = Math.max(0.01, (parseFloat(input.value) * factor)).toFixed(2);
+    }
+
+    function setMax() {
+      document.getElementById('betAmount').value = userBalance.toFixed(2);
+    }
+
+    async function playLimbo() {
+      const bet = parseFloat(document.getElementById('betAmount').value);
+      const target = parseFloat(document.getElementById('targetMultiplier').value);
+
+      if (bet > userBalance) {
+        alert('Insufficient balance');
+        return;
+      }
+
+      if (target < 1.01 || target > 1000) {
+        alert('Target must be between 1.01x and 1000x');
+        return;
+      }
+
+      document.getElementById('playBtn').disabled = true;
+      document.getElementById('gameResult').textContent = '🎯';
+      document.getElementById('gameResult').className = 'game-result';
+      document.getElementById('resultText').textContent = '';
+
+      try {
+        const res = await fetch('/api/game/limbo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bet, target })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          userBalance = data.newBalance;
+          updateBalanceDisplay();
+
+          const resultEl = document.getElementById('gameResult');
+          const resultText = document.getElementById('resultText');
+
+          resultEl.textContent = data.result.toFixed(2) + 'x';
+          resultEl.className = 'game-result ' + (data.win ? 'win' : 'lose');
+
+          if (data.win) {
+            resultText.textContent = `Win! +$${data.payout.toFixed(2)}`;
+            resultText.style.color = 'var(--accent-success)';
+          } else {
+            resultText.textContent = `Needed ${target}x, got ${data.result.toFixed(2)}x`;
+            resultText.style.color = 'var(--accent-danger)';
+          }
+
+          addToHistory(data.result, data.win);
+        } else {
+          alert(data.error);
+        }
+      } catch (e) {
+        alert('Game error');
+      }
+
+      document.getElementById('playBtn').disabled = false;
+    }
+
+    function addToHistory(result, won) {
+      const history = document.getElementById('resultHistory');
+      const badge = document.createElement('span');
+      badge.className = 'status-badge ' + (won ? 'status-confirmed' : 'status-rejected');
+      badge.textContent = result.toFixed(2) + 'x';
+      history.prepend(badge);
+      if (history.children.length > 10) {
+        history.removeChild(history.lastChild);
+      }
+    }
+
+    document.getElementById('targetMultiplier').addEventListener('input', updateWinChance);
+    updateWinChance();
+    init();
+  </script>
+</body>
+</html>

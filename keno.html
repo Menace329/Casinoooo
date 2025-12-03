@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keno - STORM Casino</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .keno-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; max-width: 420px; margin: 0 auto; }
+    .keno-cell { aspect-ratio: 1; background: var(--bg-tertiary); border: 2px solid var(--border-color); border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 600; transition: all 0.2s ease; }
+    .keno-cell:hover:not(.selected):not(.drawn) { background: var(--bg-secondary); border-color: var(--accent-primary); }
+    .keno-cell.selected { background: linear-gradient(135deg, #6366f1, #4f46e5); border-color: #6366f1; color: white; }
+    .keno-cell.drawn { background: linear-gradient(135deg, #22c55e, #16a34a); border-color: #22c55e; color: white; animation: drawPop 0.3s ease; }
+    .keno-cell.selected.drawn { background: linear-gradient(135deg, #f59e0b, #d97706); border-color: #f59e0b; box-shadow: 0 0 15px rgba(245, 158, 11, 0.5); }
+    .keno-cell.disabled { opacity: 0.5; cursor: not-allowed; }
+    @keyframes drawPop { 0% { transform: scale(1.2); } 100% { transform: scale(1); } }
+    .selection-info { display: flex; justify-content: space-between; margin-bottom: 1rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px; }
+    .selection-count { font-size: 1.5rem; font-weight: 700; color: var(--accent-primary); }
+    .risk-buttons { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    .risk-btn { flex: 1; padding: 0.5rem; background: var(--bg-tertiary); border: 2px solid var(--border-color); border-radius: 8px; color: var(--text-primary); cursor: pointer; font-weight: 600; font-size: 0.875rem; transition: all 0.2s; }
+    .risk-btn.active { border-color: var(--accent-primary); background: rgba(99, 102, 241, 0.2); }
+    .result-display { text-align: center; margin-top: 1.5rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 12px; }
+    .hits-display { font-size: 2rem; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">
+      <span class="logo">⚡</span>
+      <span class="brand-name">STORM</span>
+    </a>
+    <div class="nav-user">
+      <div class="balance-display">
+        <span class="balance-label">Balance</span>
+        <span class="balance-amount" id="userBalance">$0.00</span>
+      </div>
+      <a href="/" class="btn btn-outline">Back</a>
+    </div>
+  </nav>
+
+  <div class="game-layout">
+    <div class="game-area">
+      <div class="selection-info">
+        <div>
+          <span style="color: var(--text-muted);">Selected</span>
+          <div class="selection-count"><span id="selectedCount">0</span>/10</div>
+        </div>
+        <div style="text-align: right;">
+          <span style="color: var(--text-muted);">Hits</span>
+          <div class="selection-count" id="hitsCount">-</div>
+        </div>
+      </div>
+      <div class="keno-grid" id="kenoGrid"></div>
+      <div class="result-display" id="resultDisplay" style="display: none;">
+        <div class="hits-display" id="hitsDisplay"></div>
+        <div id="resultText" style="margin-top: 0.5rem; font-size: 1.25rem; font-weight: 600;"></div>
+      </div>
+    </div>
+
+    <div class="game-controls">
+      <h2 style="margin-bottom: 1.5rem;">Keno</h2>
+
+      <div class="form-group">
+        <label class="form-label">Bet Amount ($)</label>
+        <input type="number" id="betAmount" class="form-input" value="1" min="0.01" step="0.01">
+        <div class="bet-buttons" style="margin-top: 0.5rem;">
+          <button class="btn btn-outline" onclick="multiplyBet(0.5)">1/2</button>
+          <button class="btn btn-outline" onclick="multiplyBet(2)">2x</button>
+          <button class="btn btn-outline" onclick="setMax()">Max</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Risk Level</label>
+        <div class="risk-buttons">
+          <button class="risk-btn" data-risk="low">Low</button>
+          <button class="risk-btn active" data-risk="classic">Classic</button>
+          <button class="risk-btn" data-risk="medium">Medium</button>
+          <button class="risk-btn" data-risk="high">High</button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+        <button class="btn btn-outline" style="flex: 1;" onclick="autoPick()">Auto Pick</button>
+        <button class="btn btn-outline" style="flex: 1;" onclick="clearSelection()">Clear</button>
+      </div>
+
+      <button class="btn btn-primary btn-lg" style="width: 100%; margin-top: 1rem;" onclick="playKeno()" id="playBtn">Play</button>
+
+      <div id="lastResults" style="margin-top: 1.5rem;">
+        <span style="color: var(--text-muted); font-size: 0.875rem;">Last Results:</span>
+        <div id="resultHistory" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    let userBalance = 0;
+    let selectedNumbers = [];
+    let selectedRisk = 'classic';
+    let playing = false;
+
+    async function init() {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) {
+        window.location.href = '/login.html';
+        return;
+      }
+      const user = await res.json();
+      userBalance = user.balance;
+      updateBalanceDisplay();
+      createGrid();
+    }
+
+    function createGrid() {
+      const grid = document.getElementById('kenoGrid');
+      grid.innerHTML = '';
+      
+      for (let i = 1; i <= 40; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'keno-cell';
+        cell.textContent = i;
+        cell.dataset.number = i;
+        cell.onclick = () => toggleNumber(i);
+        grid.appendChild(cell);
+      }
+    }
+
+    function toggleNumber(num) {
+      if (playing) return;
+      
+      const cell = document.querySelector(`[data-number="${num}"]`);
+      
+      if (selectedNumbers.includes(num)) {
+        selectedNumbers = selectedNumbers.filter(n => n !== num);
+        cell.classList.remove('selected');
+      } else if (selectedNumbers.length < 10) {
+        selectedNumbers.push(num);
+        cell.classList.add('selected');
+      }
+      
+      updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+      document.getElementById('selectedCount').textContent = selectedNumbers.length;
+    }
+
+    function autoPick() {
+      if (playing) return;
+      clearSelection();
+      
+      const available = Array.from({length: 40}, (_, i) => i + 1);
+      const count = Math.floor(Math.random() * 5) + 3;
+      
+      for (let i = 0; i < count; i++) {
+        const idx = Math.floor(Math.random() * available.length);
+        const num = available.splice(idx, 1)[0];
+        selectedNumbers.push(num);
+        document.querySelector(`[data-number="${num}"]`).classList.add('selected');
+      }
+      
+      updateSelectedCount();
+    }
+
+    function clearSelection() {
+      if (playing) return;
+      selectedNumbers = [];
+      document.querySelectorAll('.keno-cell').forEach(cell => {
+        cell.classList.remove('selected', 'drawn');
+      });
+      updateSelectedCount();
+      document.getElementById('hitsCount').textContent = '-';
+      document.getElementById('resultDisplay').style.display = 'none';
+    }
+
+    function updateBalanceDisplay() {
+      document.getElementById('userBalance').textContent = '$' + userBalance.toFixed(2);
+    }
+
+    function multiplyBet(factor) {
+      const input = document.getElementById('betAmount');
+      input.value = Math.max(0.01, (parseFloat(input.value) * factor)).toFixed(2);
+    }
+
+    function setMax() {
+      document.getElementById('betAmount').value = userBalance.toFixed(2);
+    }
+
+    async function playKeno() {
+      if (playing) return;
+      if (selectedNumbers.length === 0) {
+        alert('Select at least 1 number');
+        return;
+      }
+      
+      const bet = parseFloat(document.getElementById('betAmount').value);
+
+      if (bet > userBalance) {
+        alert('Insufficient balance');
+        return;
+      }
+
+      playing = true;
+      document.getElementById('playBtn').disabled = true;
+      document.getElementById('resultDisplay').style.display = 'none';
+      
+      document.querySelectorAll('.keno-cell').forEach(cell => {
+        cell.classList.remove('drawn');
+        cell.classList.add('disabled');
+      });
+
+      try {
+        const res = await fetch('/api/game/keno', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bet, selectedNumbers, risk: selectedRisk })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          await animateDrawn(data.drawnNumbers);
+
+          userBalance = data.newBalance;
+          updateBalanceDisplay();
+
+          document.getElementById('hitsCount').textContent = data.hits;
+          
+          const resultDisplay = document.getElementById('resultDisplay');
+          resultDisplay.style.display = 'block';
+          
+          const hitsDisplay = document.getElementById('hitsDisplay');
+          hitsDisplay.textContent = `${data.hits} Hits - ${data.multiplier.toFixed(2)}x`;
+          hitsDisplay.style.color = data.win ? 'var(--accent-success)' : 'var(--accent-danger)';
+
+          const resultText = document.getElementById('resultText');
+          if (data.win) {
+            resultText.textContent = `+$${data.payout.toFixed(2)}`;
+            resultText.style.color = 'var(--accent-success)';
+          } else {
+            resultText.textContent = `-$${bet.toFixed(2)}`;
+            resultText.style.color = 'var(--accent-danger)';
+          }
+
+          addToHistory(data.hits, data.multiplier);
+        } else {
+          alert(data.error);
+        }
+      } catch (e) {
+        alert('Game error');
+      }
+
+      document.querySelectorAll('.keno-cell').forEach(cell => {
+        cell.classList.remove('disabled');
+      });
+      playing = false;
+      document.getElementById('playBtn').disabled = false;
+    }
+
+    function animateDrawn(drawnNumbers) {
+      return new Promise(resolve => {
+        let i = 0;
+        const interval = setInterval(() => {
+          if (i >= drawnNumbers.length) {
+            clearInterval(interval);
+            resolve();
+            return;
+          }
+          
+          const num = drawnNumbers[i];
+          const cell = document.querySelector(`[data-number="${num}"]`);
+          cell.classList.add('drawn');
+          i++;
+        }, 100);
+      });
+    }
+
+    function addToHistory(hits, multiplier) {
+      const history = document.getElementById('resultHistory');
+      const badge = document.createElement('span');
+      const won = multiplier > 0;
+      badge.className = 'status-badge ' + (won ? 'status-confirmed' : 'status-rejected');
+      badge.textContent = `${hits}H ${multiplier.toFixed(1)}x`;
+      history.prepend(badge);
+      if (history.children.length > 8) {
+        history.removeChild(history.lastChild);
+      }
+    }
+
+    document.querySelectorAll('.risk-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (playing) return;
+        document.querySelectorAll('.risk-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedRisk = btn.dataset.risk;
+      });
+    });
+
+    init();
+  </script>
+</body>
+</html>

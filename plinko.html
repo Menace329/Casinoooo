@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plinko - STORM Casino</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .plinko-container { position: relative; width: 100%; max-width: 400px; margin: 0 auto; }
+    .plinko-board { background: var(--bg-tertiary); border-radius: 12px; padding: 1rem; position: relative; }
+    .plinko-pegs { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 0; }
+    .peg-row { display: flex; gap: 24px; justify-content: center; }
+    .peg { width: 10px; height: 10px; background: #6366f1; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+    .buckets { display: flex; justify-content: space-between; margin-top: 10px; }
+    .bucket { flex: 1; text-align: center; padding: 8px 4px; font-size: 0.7rem; font-weight: 700; border-radius: 4px; margin: 0 2px; transition: all 0.3s ease; }
+    .bucket.highlight { transform: scale(1.1); box-shadow: 0 0 20px currentColor; }
+    .ball { position: absolute; width: 16px; height: 16px; background: linear-gradient(135deg, #f59e0b, #d97706); border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.4); z-index: 10; transition: all 0.15s ease-out; }
+    .plinko-result { font-size: 3rem; font-weight: 700; text-align: center; margin-bottom: 1rem; }
+    .risk-buttons { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    .risk-btn { flex: 1; padding: 0.75rem; background: var(--bg-tertiary); border: 2px solid var(--border-color); border-radius: 8px; color: var(--text-primary); cursor: pointer; font-weight: 600; transition: all 0.2s; }
+    .risk-btn:hover { transform: translateY(-2px); }
+    .risk-btn.active { border-color: var(--accent-primary); background: rgba(99, 102, 241, 0.2); }
+    .risk-btn.low { border-color: var(--accent-success); }
+    .risk-btn.low.active { background: rgba(34, 197, 94, 0.2); }
+    .risk-btn.medium { border-color: var(--accent-warning); }
+    .risk-btn.medium.active { background: rgba(245, 158, 11, 0.2); }
+    .risk-btn.high { border-color: var(--accent-danger); }
+    .risk-btn.high.active { background: rgba(239, 68, 68, 0.2); }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">
+      <span class="logo">⚡</span>
+      <span class="brand-name">STORM</span>
+    </a>
+    <div class="nav-user">
+      <div class="balance-display">
+        <span class="balance-label">Balance</span>
+        <span class="balance-amount" id="userBalance">$0.00</span>
+      </div>
+      <a href="/" class="btn btn-outline">Back</a>
+    </div>
+  </nav>
+
+  <div class="game-layout">
+    <div class="game-area">
+      <div class="plinko-result" id="gameResult">🔴</div>
+      <div class="plinko-container">
+        <div class="plinko-board" id="plinkoBoard">
+          <div class="plinko-pegs" id="plinkoPegs"></div>
+          <div class="buckets" id="buckets"></div>
+        </div>
+      </div>
+      <div id="resultText" style="text-align: center; margin-top: 1.5rem; font-size: 1.25rem; font-weight: 600;"></div>
+    </div>
+
+    <div class="game-controls">
+      <h2 style="margin-bottom: 1.5rem;">Plinko</h2>
+
+      <div class="form-group">
+        <label class="form-label">Bet Amount ($)</label>
+        <input type="number" id="betAmount" class="form-input" value="1" min="0.01" step="0.01">
+        <div class="bet-buttons" style="margin-top: 0.5rem;">
+          <button class="btn btn-outline" onclick="multiplyBet(0.5)">1/2</button>
+          <button class="btn btn-outline" onclick="multiplyBet(2)">2x</button>
+          <button class="btn btn-outline" onclick="setMax()">Max</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Risk Level</label>
+        <div class="risk-buttons">
+          <button class="risk-btn low active" data-risk="low">Low</button>
+          <button class="risk-btn medium" data-risk="medium">Medium</button>
+          <button class="risk-btn high" data-risk="high">High</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-lg" style="width: 100%;" onclick="playPlinko()" id="playBtn">Drop Ball</button>
+
+      <div id="lastResults" style="margin-top: 1.5rem;">
+        <span style="color: var(--text-muted); font-size: 0.875rem;">Last Results:</span>
+        <div id="resultHistory" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    let userBalance = 0;
+    let selectedRisk = 'low';
+    let playing = false;
+    const rows = 8;
+
+    const multipliers = {
+      low: [5.6, 2.1, 1.1, 1, 0.5, 1, 1.1, 2.1, 5.6],
+      medium: [13, 3, 1.3, 0.7, 0.4, 0.7, 1.3, 3, 13],
+      high: [29, 4, 1.5, 0.3, 0.2, 0.3, 1.5, 4, 29]
+    };
+
+    const colors = {
+      low: ['#22c55e', '#4ade80', '#86efac', '#bbf7d0', '#dcfce7', '#bbf7d0', '#86efac', '#4ade80', '#22c55e'],
+      medium: ['#f59e0b', '#fbbf24', '#fcd34d', '#fde68a', '#fef3c7', '#fde68a', '#fcd34d', '#fbbf24', '#f59e0b'],
+      high: ['#ef4444', '#f87171', '#fca5a5', '#fecaca', '#fee2e2', '#fecaca', '#fca5a5', '#f87171', '#ef4444']
+    };
+
+    async function init() {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) {
+        window.location.href = '/login.html';
+        return;
+      }
+      const user = await res.json();
+      userBalance = user.balance;
+      updateBalanceDisplay();
+      createBoard();
+    }
+
+    function createBoard() {
+      const pegsContainer = document.getElementById('plinkoPegs');
+      const bucketsContainer = document.getElementById('buckets');
+      pegsContainer.innerHTML = '';
+      bucketsContainer.innerHTML = '';
+
+      for (let row = 0; row < rows; row++) {
+        const pegRow = document.createElement('div');
+        pegRow.className = 'peg-row';
+        for (let col = 0; col <= row + 2; col++) {
+          const peg = document.createElement('div');
+          peg.className = 'peg';
+          pegRow.appendChild(peg);
+        }
+        pegsContainer.appendChild(pegRow);
+      }
+
+      const mults = multipliers[selectedRisk];
+      const cols = colors[selectedRisk];
+      
+      mults.forEach((mult, i) => {
+        const bucket = document.createElement('div');
+        bucket.className = 'bucket';
+        bucket.style.background = cols[i];
+        bucket.style.color = mult < 1 ? '#000' : '#fff';
+        bucket.textContent = mult + 'x';
+        bucket.dataset.index = i;
+        bucketsContainer.appendChild(bucket);
+      });
+    }
+
+    function updateBalanceDisplay() {
+      document.getElementById('userBalance').textContent = '$' + userBalance.toFixed(2);
+    }
+
+    function multiplyBet(factor) {
+      const input = document.getElementById('betAmount');
+      input.value = Math.max(0.01, (parseFloat(input.value) * factor)).toFixed(2);
+    }
+
+    function setMax() {
+      document.getElementById('betAmount').value = userBalance.toFixed(2);
+    }
+
+    async function playPlinko() {
+      if (playing) return;
+      
+      const bet = parseFloat(document.getElementById('betAmount').value);
+
+      if (bet > userBalance) {
+        alert('Insufficient balance');
+        return;
+      }
+
+      playing = true;
+      document.getElementById('playBtn').disabled = true;
+      document.getElementById('gameResult').textContent = '🔴';
+      document.getElementById('resultText').textContent = '';
+
+      document.querySelectorAll('.bucket').forEach(b => b.classList.remove('highlight'));
+
+      try {
+        const res = await fetch('/api/game/plinko', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bet, risk: selectedRisk, rows })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          await animateBall(data.path, data.bucketIndex);
+
+          userBalance = data.newBalance;
+          updateBalanceDisplay();
+
+          const bucket = document.querySelector(`[data-index="${data.bucketIndex}"]`);
+          if (bucket) bucket.classList.add('highlight');
+
+          document.getElementById('gameResult').textContent = data.multiplier.toFixed(2) + 'x';
+          document.getElementById('gameResult').style.color = data.win ? 'var(--accent-success)' : 'var(--accent-danger)';
+
+          const resultText = document.getElementById('resultText');
+          if (data.win) {
+            resultText.textContent = `+$${data.payout.toFixed(2)}`;
+            resultText.style.color = 'var(--accent-success)';
+          } else {
+            resultText.textContent = `-$${(bet - data.payout).toFixed(2)}`;
+            resultText.style.color = 'var(--accent-danger)';
+          }
+
+          addToHistory(data.multiplier);
+        } else {
+          alert(data.error);
+        }
+      } catch (e) {
+        alert('Game error');
+      }
+
+      playing = false;
+      document.getElementById('playBtn').disabled = false;
+    }
+
+    function animateBall(path, finalBucket) {
+      return new Promise(resolve => {
+        const board = document.getElementById('plinkoBoard');
+        const ball = document.createElement('div');
+        ball.className = 'ball';
+        board.appendChild(ball);
+
+        const boardRect = board.getBoundingClientRect();
+        const pegRows = document.querySelectorAll('.peg-row');
+        
+        let x = boardRect.width / 2 - 8;
+        let y = 20;
+        
+        ball.style.left = x + 'px';
+        ball.style.top = y + 'px';
+
+        let step = 0;
+        const stepWidth = 18;
+        const stepHeight = 30;
+
+        const animate = () => {
+          if (step >= path.length) {
+            setTimeout(() => {
+              ball.remove();
+              resolve();
+            }, 300);
+            return;
+          }
+
+          const direction = path[step];
+          x += direction === 'R' ? stepWidth : -stepWidth;
+          y += stepHeight;
+          
+          ball.style.left = x + 'px';
+          ball.style.top = y + 'px';
+
+          step++;
+          setTimeout(animate, 120);
+        };
+
+        setTimeout(animate, 100);
+      });
+    }
+
+    function addToHistory(multiplier) {
+      const history = document.getElementById('resultHistory');
+      const badge = document.createElement('span');
+      const won = multiplier >= 1;
+      badge.className = 'status-badge ' + (won ? 'status-confirmed' : 'status-rejected');
+      badge.textContent = multiplier.toFixed(2) + 'x';
+      history.prepend(badge);
+      if (history.children.length > 10) {
+        history.removeChild(history.lastChild);
+      }
+    }
+
+    document.querySelectorAll('.risk-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (playing) return;
+        document.querySelectorAll('.risk-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedRisk = btn.dataset.risk;
+        createBoard();
+      });
+    });
+
+    init();
+  </script>
+</body>
+</html>

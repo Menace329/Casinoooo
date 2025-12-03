@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wallet - STORM Casino</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">
+      <span class="logo">⚡</span>
+      <span class="brand-name">STORM</span>
+    </a>
+    <div class="nav-user" id="userNav">
+      <div class="balance-display">
+        <span class="balance-label">Balance</span>
+        <span class="balance-amount" id="userBalance">$0.00</span>
+      </div>
+      <a href="/" class="btn btn-outline">Back to Games</a>
+    </div>
+  </nav>
+
+  <div class="page-container">
+    <h1 style="margin-bottom: 2rem;">Wallet</h1>
+
+    <div class="wallet-grid">
+      <div class="wallet-section">
+        <h2>COMING SOON!</h2>
+        
+        <div class="currency-tabs">
+          <button class="currency-tab active" data-currency="BTC">Bitcoin</button>
+          <button class="currency-tab" data-currency="LTC">Litecoin</button>
+        </div>
+
+        <p style="color: var(--text-muted); margin-bottom: 1rem;">Send <span id="currencyName">BTC</span> to this address:</p>
+        
+        <div class="address-display" id="depositAddress">Loading...</div>
+        
+        <button class="btn btn-outline copy-btn" onclick="copyAddress()">Copy Address</button>
+
+        <div style="margin-top: 2rem;">
+          <h3 style="margin-bottom: 1rem;">Report Deposit</h3>
+          <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">After sending, paste your transaction hash below:</p>
+          
+          <div class="form-group">
+            <input type="text" id="txHash" class="form-input" placeholder="Transaction Hash (txid)">
+          </div>
+          
+          <button class="btn btn-primary" style="width: 100%" onclick="reportDeposit()">Report Deposit</button>
+        </div>
+
+        <div id="depositStatus" class="deposit-status hidden" style="margin-top: 1.5rem;">
+          <div class="status-icon">⏳</div>
+          <div class="status-message">Checking...</div>
+          <div class="status-details"></div>
+        </div>
+      </div>
+
+      <div class="wallet-section">
+        <h2>Withdraw</h2>
+        
+        <div class="currency-tabs">
+          <button class="currency-tab active" data-withdraw="BTC">Bitcoin</button>
+          <button class="currency-tab" data-withdraw="LTC">Litecoin</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Amount (USD)</label>
+          <input type="number" id="withdrawAmount" class="form-input" placeholder="10.00" min="1" step="0.01">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Your <span id="withdrawCurrency">BTC</span> Address</label>
+          <input type="text" id="withdrawAddress" class="form-input" placeholder="Enter your wallet address">
+        </div>
+
+        <button class="btn btn-primary" style="width: 100%" onclick="requestWithdraw()">Request Withdrawal</button>
+        
+        <p style="color: var(--text-muted); font-size: 0.75rem; margin-top: 1rem;">Withdrawals are processed manually. Please allow up to 24 hours.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 2rem;">
+      <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+        <button class="btn btn-primary" id="txTabBtn" onclick="showTxTab('transactions')">Transactions</button>
+        <button class="btn btn-outline" id="betsTabBtn" onclick="showTxTab('bets')">My Bets</button>
+      </div>
+      
+      <div id="transactionsTab">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Currency</th>
+              <th>Status</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="transactionHistory">
+            <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div id="betsTab" style="display: none;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Game</th>
+              <th>Bet</th>
+              <th>Payout</th>
+              <th>Result</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="betsHistory">
+            <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    let currentDepositCurrency = 'BTC';
+    let currentWithdrawCurrency = 'BTC';
+    let currentDepositId = null;
+
+    async function init() {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) {
+        window.location.href = '/login.html';
+        return;
+      }
+      const user = await res.json();
+      document.getElementById('userBalance').textContent = '$' + user.balance.toFixed(2);
+      
+      loadDepositAddress();
+      loadTransactions();
+    }
+
+    async function loadDepositAddress() {
+      try {
+        const res = await fetch(`/api/crypto/deposit-address/${currentDepositCurrency}`);
+        const data = await res.json();
+        document.getElementById('depositAddress').textContent = data.address;
+        document.getElementById('currencyName').textContent = currentDepositCurrency;
+      } catch (e) {
+        document.getElementById('depositAddress').textContent = 'Error loading address';
+      }
+    }
+
+    async function loadTransactions() {
+      try {
+        const [deposits, withdrawals] = await Promise.all([
+          fetch('/api/crypto/deposits').then(r => r.json()),
+          fetch('/api/crypto/withdrawals').then(r => r.json())
+        ]);
+
+        const all = [
+          ...deposits.map(d => ({ ...d, type: 'deposit' })),
+          ...withdrawals.map(w => ({ ...w, type: 'withdraw' }))
+        ].sort((a, b) => new Date(b.detected_at || b.requested_at) - new Date(a.detected_at || a.requested_at));
+
+        const tbody = document.getElementById('transactionHistory');
+        if (all.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No transactions yet</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = all.map(t => `
+          <tr>
+            <td>${t.type === 'deposit' ? '↓ Deposit' : '↑ Withdraw'}</td>
+            <td>${t.currency}</td>
+            <td><span class="status-badge status-${t.status}">${t.status}</span></td>
+            <td>${new Date(t.detected_at || t.requested_at).toLocaleDateString()}</td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        console.error('Failed to load transactions', e);
+      }
+    }
+
+    function copyAddress() {
+      const address = document.getElementById('depositAddress').textContent;
+      navigator.clipboard.writeText(address);
+      alert('Address copied!');
+    }
+
+    async function reportDeposit() {
+      const txHash = document.getElementById('txHash').value.trim();
+      if (!txHash) {
+        alert('Please enter a transaction hash');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/crypto/deposit/report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currency: currentDepositCurrency, txHash })
+        });
+
+        const data = await res.json();
+        
+        if (res.ok) {
+          currentDepositId = data.depositId;
+          showDepositStatus('pending', data.message);
+          pollDepositStatus();
+        } else {
+          alert(data.error);
+        }
+      } catch (e) {
+        alert('Failed to report deposit');
+      }
+    }
+
+    function showDepositStatus(status, message, details = '') {
+      const container = document.getElementById('depositStatus');
+      container.classList.remove('hidden', 'pending', 'confirmed');
+      container.classList.add(status);
+      
+      container.querySelector('.status-icon').textContent = status === 'confirmed' ? '✓' : '⏳';
+      container.querySelector('.status-message').textContent = message;
+      container.querySelector('.status-details').textContent = details;
+    }
+
+    async function pollDepositStatus() {
+      if (!currentDepositId) return;
+
+      try {
+        const res = await fetch(`/api/crypto/deposit/status/${currentDepositId}`);
+        const data = await res.json();
+
+        if (data.status === 'confirmed') {
+          showDepositStatus('confirmed', 'Transaction Complete!', `+$${data.amountUsd?.toFixed(2) || '0.00'}`);
+          loadTransactions();
+          const userRes = await fetch('/api/auth/me');
+          const user = await userRes.json();
+          document.getElementById('userBalance').textContent = '$' + user.balance.toFixed(2);
+        } else {
+          showDepositStatus('pending', data.message, `${data.confirmations}/${data.required} confirmations`);
+          setTimeout(pollDepositStatus, 30000);
+        }
+      } catch (e) {
+        console.error('Failed to check status', e);
+      }
+    }
+
+    async function requestWithdraw() {
+      const amount = document.getElementById('withdrawAmount').value;
+      const address = document.getElementById('withdrawAddress').value.trim();
+
+      if (!amount || amount < 1) {
+        alert('Minimum withdrawal is $1.00');
+        return;
+      }
+
+      if (!address) {
+        alert('Please enter your wallet address');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/crypto/withdraw', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currency: currentWithdrawCurrency, amount, address })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          alert(data.message);
+          document.getElementById('withdrawAmount').value = '';
+          document.getElementById('withdrawAddress').value = '';
+          loadTransactions();
+          const userRes = await fetch('/api/auth/me');
+          const user = await userRes.json();
+          document.getElementById('userBalance').textContent = '$' + user.balance.toFixed(2);
+        } else {
+          alert(data.error);
+        }
+      } catch (e) {
+        alert('Failed to request withdrawal');
+      }
+    }
+
+    document.querySelectorAll('.currency-tab[data-currency]').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.currency-tab[data-currency]').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentDepositCurrency = tab.dataset.currency;
+        loadDepositAddress();
+      });
+    });
+
+    document.querySelectorAll('.currency-tab[data-withdraw]').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.currency-tab[data-withdraw]').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentWithdrawCurrency = tab.dataset.withdraw;
+        document.getElementById('withdrawCurrency').textContent = currentWithdrawCurrency;
+      });
+    });
+
+    function showTxTab(tab) {
+      if (tab === 'transactions') {
+        document.getElementById('transactionsTab').style.display = 'block';
+        document.getElementById('betsTab').style.display = 'none';
+        document.getElementById('txTabBtn').className = 'btn btn-primary';
+        document.getElementById('betsTabBtn').className = 'btn btn-outline';
+      } else {
+        document.getElementById('transactionsTab').style.display = 'none';
+        document.getElementById('betsTab').style.display = 'block';
+        document.getElementById('txTabBtn').className = 'btn btn-outline';
+        document.getElementById('betsTabBtn').className = 'btn btn-primary';
+        loadBets();
+      }
+    }
+
+    async function loadBets() {
+      try {
+        const res = await fetch('/api/game/history');
+        const bets = await res.json();
+
+        const tbody = document.getElementById('betsHistory');
+        if (bets.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No bets yet</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = bets.map(b => `
+          <tr>
+            <td>${b.gameType}</td>
+            <td>$${b.bet.toFixed(2)}</td>
+            <td>$${b.payout.toFixed(2)}</td>
+            <td><span class="status-badge ${b.won ? 'status-confirmed' : 'status-rejected'}">${b.won ? 'Win' : 'Loss'}</span></td>
+            <td>${new Date(b.createdAt).toLocaleDateString()}</td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        document.getElementById('betsHistory').innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--accent-danger);">Failed to load</td></tr>';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
